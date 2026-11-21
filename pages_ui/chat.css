@@ -1,0 +1,183 @@
+[data-testid="stApp"]:has(.st-key-chat_toolbar) {
+    background: #fff;
+}
+
+[data-testid="stMainBlockContainer"]:has(.st-key-chat_toolbar) {
+    max-width: 1180px;
+    padding: 2.45rem clamp(1.15rem, 3.1vw, 3.25rem) 1.75rem;
+}
+
+.st-key-chat_toolbar {
+    padding: 0.45rem 0 0.85rem;
+    border-bottom: 1px solid #e5ece7;
+}
+
+[data-testid="stLayoutWrapper"]:has(> .st-key-chat_toolbar) {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fff;
+}
+
+.st-key-chat_toolbar h1 {
+    margin: 0;
+    padding: 0;
+    font-size: 1.38rem;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+}
+
+.st-key-chat_history_panel {
+    gap: 0.65rem;
+}
+
+.st-key-chat_history_panel h4 {
+    margin: 0;
+    padding: 0.65rem 0.5rem 0;
+    color: #a8c1b1;
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.st-key-back_to_business button {
+    min-height: 2.2rem;
+    justify-content: flex-start;
+    padding-inline: 0.3rem;
+    color: #dceee2;
+}
+
+.st-key-new_business_chat button {
+    min-height: 2.6rem;
+    color: #17382a;
+}
+
+.st-key-new_business_chat button :is(p, [data-testid="stIconMaterial"]) {
+    color: #17382a;
+}
+
+.st-key-chat_history_panel [class*="st-key-conversation_"] button {
+    justify-content: flex-start;
+    min-height: 2.34rem;
+    overflow: hidden;
+    padding: 0.46rem 0.55rem;
+    border-radius: 0.52rem;
+    font-size: 0.825rem;
+}
+
+.st-key-chat_history_panel [class*="st-key-conversation_"] button[data-testid="stBaseButton-secondary"] {
+    border-color: #456552;
+    background-color: #2b4838;
+    color: #f6fbf7;
+}
+
+.st-key-chat_history_panel [class*="st-key-conversation_"] button > div {
+    justify-content: flex-start;
+    width: 100%;
+}
+
+.st-key-chat_history_panel [class*="st-key-conversation_"] button > div > span {
+    min-width: 0;
+}
+
+.st-key-chat_history_panel [class*="st-key-conversation_"] button [data-testid="stMarkdownContainer"] {
+    display: block;
+    min-width: 0;
+}
+
+.st-key-chat_history_panel [class*="st-key-conversation_"] button p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.st-key-chat_messages {
+    width: 100%;
+    max-width: 790px;
+    margin: 0.75rem auto 0;
+    gap: 1.15rem;
+}
+
+.st-key-chat_messages [data-testid="stChatMessage"] {
+    padding: 0.8rem;
+    border-radius: 0.9rem;
+    background: #fff;
+}
+
+.st-key-chat_messages [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+    width: fit-content;
+    max-width: 87%;
+    margin-left: auto;
+    padding: 0.65rem 1rem;
+    background-color: #e9f3eb;
+    border: 1px solid #dfebe1;
+}
+
+.st-key-chat_messages [data-testid="stChatMessageAvatarUser"] {
+    display: none;
+}
+
+.st-key-chat_messages [data-testid="stChatMessageContent"] pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.st-key-chat_empty {
+    min-height: clamp(14rem, 43dvh, 24rem);
+    justify-content: center;
+    text-align: center;
+}
+
+.st-key-chat_empty [data-testid="stMarkdownContainer"] {
+    text-align: center;
+}
+
+.st-key-chat_empty > div:first-child span[role="img"] {
+    display: inline-grid;
+    width: 3.2rem;
+    height: 3.2rem;
+    place-items: center;
+    border-radius: 1rem;
+    background: #e6f2e9;
+    color: #1c6549;
+    font-size: 1.52rem;
+}
+
+.st-key-chat_empty h3 {
+    margin: 0;
+    padding: 0;
+    font-size: 1.65rem;
+    line-height: 1.3;
+}
+
+.st-key-chat_empty button {
+    border-color: #dce8df;
+    background-color: #f7faf8;
+    color: #2e5340;
+}
+
+[data-testid="stApp"]:has(.st-key-chat_toolbar) [data-testid="stBottomBlockContainer"] {
+    max-width: 875px;
+    padding-inline: clamp(1.15rem, 3.1vw, 2.65rem);
+}
+
+[data-testid="stApp"]:has(.st-key-chat_toolbar) [data-testid="stBottom"] > div {
+    background: #fff;
+}
+
+[data-testid="stApp"]:has(.st-key-chat_toolbar) [data-testid="stChatInput"] {
+    border-radius: 1rem;
+}
+
+@media (max-width: 660px) {
+    [data-testid="stMainBlockContainer"]:has(.st-key-chat_toolbar) {
+        padding: 2.6rem 0.95rem 1rem;
+    }
+
+    .st-key-chat_messages [data-testid="stChatMessage"] {
+        padding-inline: 0.55rem;
+    }
+
+    .st-key-chat_empty {
+        min-height: 14rem;
+    }
+}
