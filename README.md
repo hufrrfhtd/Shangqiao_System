@@ -1,100 +1,73 @@
-# AI-Interview-Demo
+# 耗材工作台
 
-一个 Windows 上运行的项目面试 Demo。首页的左侧菜单可切换「业务助手」和「商品智能分类」。业务助手提供两个入口，分别用于批量询价报价，以及查询耗材选型、售后问题和 ERP 价格库存。价格、库存、知识文档与训练语料均为虚构演示数据。
+耗材工作台是面向打印机耗材的本地业务系统，提供批量询价报价、耗材选型与售后问答、商品分类。系统内置示例商品、询价单和技术文档，价格与库存来自本地模拟 ERP。
 
-## Windows x64 便携版
+## 快速开始
 
-1. 下载 Windows x64 便携版。 [AI-Interview-Demo-windows-x64.zip](../../releases/latest/download/AI-Interview-Demo-windows-x64.zip)
-2. 将 ZIP 完整解压到可写目录。
-3. 双击 `Run-Demo.cmd`。启动后在浏览器打开工作台。终端会显示本地访问地址，按 `Ctrl+C` 停止服务。
+1. [下载 Windows x64 便携版](https://github.com/hufrrfhtd/ai-interview-demo/releases/latest/download/AI-Interview-Demo-windows-x64.zip)。
+2. 将 ZIP 完整解压到有写入权限的目录。
+3. 双击 `Run-Demo.cmd`，在浏览器中打开工作台。若浏览器没有自动打开，可访问终端显示的本地地址。
 
-便携版内置 Python、运行依赖和演示数据，无需安装 Python、申请 API Key 或联网启动。支持 FAQ、BM25 知识库检索、只读 ERP 查询、批量报价审核与 Excel 导出，以及商品分类的规则基线。DeepSeek、BGE 和 MacBERT 可按下方的开发者说明启用。
+便携版内置 Python 和运行依赖，解压后即可离线使用。按 `Ctrl+C` 可停止本地服务。
 
-## 面试演示指南
+## 功能与用法
 
-### 1. 业务对话
+### 询价报价
 
-在「业务助手」首页点击「开始对话」，在底部输入问题并发送。左侧可新建对话，也可按会话标题或消息内容搜索，再点选历史继续提问。会话保存在项目的 `.runtime/chat_history.sqlite3`。
+1. 在「业务助手」点击「进入询价」，上传 Excel 或 CSV，或直接使用内置的示例询价单。表格应包含商品描述或型号、数量，可补充品牌与兼容要求。
+2. 点击「开始询价分析」。系统匹配 SKU，查询商品单价和库存，并标出需要人工核对的记录。
+3. 有待审核记录时，在「人工审核」中逐行选择「确认报价」或「跳过」。确认的记录需要核对 SKU 和数量，同一 SKU 的合计数量会参与库存校验。审核完毕后点击「确认并生成报价」。
+4. 报价生成后，点击「下载报价 Excel」。
 
-- 「HP M404 可以选哪些硒鼓？」查询设备与耗材的兼容依据。
-- 「如何申请退货？」展示 FAQ 标准答案。输入「打印时卡纸怎么办？」后补充「HP M404」，演示售后追问和设备型号过滤。
-- 「CF258A 的价格和库存是多少？」演示只读 ERP 查询。SKU 及其价格和库存取自 `data/sku.csv`。可在问同一机型的兼容耗材时一并询问价格和库存。
+### 业务对话
 
-选型和售后文档来自 `data/selection/` 与 `data/after_sales/`，由同一知识库检索。展开检索明细可查看来源、原文、BM25 和可用的向量召回、RRF 融合及精排结果。配置 DeepSeek 后可生成带引用的回答，本地模式可查看引用原文。
+在「业务助手」点击「开始对话」，在右侧底部输入问题。左侧可新建对话、搜索历史会话，或打开旧会话继续提问。
 
-选好文档类型后，可将文字 PDF、`.docx` 和 TXT 上传到统一知识库。TXT 可用 `设备型号：HP M404、HP M428` 标注适用设备，用 Markdown 标题标记章节。PDF 扫描件需要先做 OCR，旧版 `.doc` 请转存为 `.docx`。重复上传同一份文件会按 Hash 去重，上传已修改的同名文件可演示增量更新。
+| 可查询的内容 | 示例问题 |
+| --- | --- |
+| 耗材选型 | HP M404 可以用哪些硒鼓？ |
+| 价格与库存 | CF258A 的价格和库存是多少？ |
+| 故障排查与售后政策 | HP M404 卡纸怎么处理？如何申请退货？ |
 
-### 2. 询价报价
+选型与售后问题使用同一知识库。询问价格或库存时，系统会按需查询只读 ERP。回复下方可展开「查看检索排名与原文」。对话记录保存在本机的 `.runtime/chat_history.sqlite3`。
 
-1. 在「业务助手」首页的「询价报价」卡片点击「进入询价」，使用默认询价单，或上传 `data/quotation.xlsx` 或 `data/quotation.csv`。8 行分别涵盖标准型号、简称、自定义别名、打印机型号推选耗材、中文数量、范围数量、超库存和未知型号。
-2. 点击「开始询价分析」，对照规则与 DeepSeek 的抽取结果，按原始行号核对型号、数量及类别。DeepSeek 关闭或请求失败时，流程按规则提取并交人工确认。 [LangGraph 中断与恢复](https://docs.langchain.com/oss/python/langgraph/interrupts)
-3. 在审核表选择有效 SKU，填写明确数量，或跳过本次无法报价的行。例如审批范围数量时可选 `TON-003` 并填 6。同一 SKU 的多行数量合计也参与库存校验。确认后以同一 `thread_id` 恢复工作流，下载报价 Excel。
+需要添加资料时，打开「检索设置」中的「管理知识库」，选择文档类型，上传可提取文字的 PDF、DOCX 或 TXT，再点击「更新知识库」。
 
-### 3. 商品智能分类
+### 商品智能分类
 
-1. 加载 `data/products_demo.xlsx` 或上传同结构 Excel，观察缺失字段处理、文本标准化和重复记录识别。输入字段为商品名称、品牌、商品规格、供应商原始型号。
-2. 执行分类，检查是否显示 MacBERT CPU 推理或规则基线。结果表展示二级类目、对应的一级类目和固定 ERP 编码。MacBERT 模式下可查看各类的概率。
-3. 在低置信度表中确认或修正二级类目，并补齐缺失的商品名称。再下载 ERP 标准 Excel。可提高复核阈值以演示更多待处理项。
-4. 在评测入口使用内置标注测试数据，或上传包含「标注二级类目」的自有测试集。Accuracy、Macro-F1 和混淆矩阵由当次预测和实际标签计算。样例评测只用于演示计算链路。
+1. 在左侧选择「商品智能分类」，上传 Excel 或使用内置示例。标准列为「商品名称」「品牌」「商品规格」「供应商原始型号」。
+2. 点击「清洗并分类」，查看预测类目、置信度和对应的 ERP 编码。
+3. 在「人工复核」中确认或修正待复核商品的类目，补齐缺失的商品名称，再点击「下载 ERP 标准 Excel」。
 
-## 开发者运行
+如需评估分类效果，可在「标注数据评测」中使用内置测试集，或上传含「标注二级类目」列的测试表。
 
-### 从源码启动
+## 从源码运行与开启可选功能
 
-Windows x64 下载源码 ZIP 后，解压并双击 `Run-Demo.cmd` 也可运行。首次启动时会联网下载 Python 和基础依赖。
+下载源码后也可以双击 `Run-Demo.cmd`。首次启动会联网准备 Python 和运行依赖。此方式和便携版均默认使用本地 BM25 检索与规则分类。
 
-安装 uv 后，在项目目录打开 PowerShell，创建 Python 3.11 环境并安装依赖。
+需要启用 DeepSeek、BGE 或 MacBERT 时，先安装 uv，再在源码目录创建运行环境并按本节末尾的命令启动。 [uv 安装说明](https://docs.astral.sh/uv/getting-started/installation/)
 
 ```powershell
 uv venv --python 3.11 .venv
 uv pip install --python .venv/Scripts/python.exe -r requirements.txt
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\start-demo.ps1
+if (-not (Test-Path '.env')) { Copy-Item '.env.example' '.env' }
 ```
 
-终端会显示本地访问地址。Streamlit 通常使用 8501，端口被占用时会尝试下一个端口。需要固定端口时，在命令末尾加 `-Port 8503`。只启动服务时可加 `-Headless`。
-
-### DeepSeek 和本地模型设置
-
-需要扩展功能时，可将 `.env.example` 复制为 `.env`。进程环境变量优先于 `.env`。
-
-- 在 `.env` 填写 `DEEPSEEK_API_KEY`，保留默认 `DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL=deepseek-flash`，然后重启应用。`DEEPSEEK_ENABLED=0` 可强制走本地演示流程。启用服务时，询价行及生成回答所需的知识片段会发送至配置的 API。 [DeepSeek JSON 输出文档](https://api-docs.deepseek.com/guides/json_mode/)
-- BGE 默认用 `BAAI/bge-small-zh-v1.5`。联网时可在 `.env` 设置 `RAG_ALLOW_MODEL_DOWNLOAD=1`，然后发起一次检索下载并缓存权重。离线时将 `BGE_MODEL` 指向包含权重和分词器的本地模型目录。可用 `BAAI/bge-m3` 切换 Embedding，可用 `BGE_RERANKER_MODEL=BAAI/bge-reranker-base` 启用精排，随后在页面勾选。 [BGE 中文小模型](https://huggingface.co/BAAI/bge-small-zh-v1.5) [BGE-M3](https://huggingface.co/BAAI/bge-m3) [BGE Reranker](https://huggingface.co/BAAI/bge-reranker-base)
-- MacBERT 需先用训练脚本生成 18 类分类头和本地权重。规则基线的分数用于安排复核，MacBERT 模式显示模型输出的最大类别概率。 [Chinese MacBERT-base](https://huggingface.co/hfl/chinese-macbert-base)
-
-BGE 向量检索、重排序与 MacBERT 使用 CPU 版 PyTorch 和本地模型依赖。
+- **DeepSeek** 支持询价信息抽取和带引用的问答。在 `.env` 填写 `DEEPSEEK_API_KEY`。启用后，查询或抽取所需的内容会发送到配置的 API。
+- **BGE** 支持向量检索和重排序。安装下方模型依赖后，可在 `.env` 设置 `RAG_ALLOW_MODEL_DOWNLOAD=1`，或将 `BGE_MODEL` 指向本地权重目录。可选的精排模型通过 `BGE_RERANKER_MODEL` 设置。
+- **MacBERT** 支持查看 18 个二级类目的模型概率。安装模型依赖后运行 `train_macbert.py` 生成分类权重。首次训练会下载基础模型，也可用 `--base-model` 指定本地模型目录。
 
 ```powershell
+# 使用 BGE 或 MacBERT 时安装
 uv pip install --python .venv/Scripts/python.exe --index-url https://download.pytorch.org/whl/cpu "torch>=2.6,<3"
 uv pip install --python .venv/Scripts/python.exe -r requirements-models.txt
-```
 
-### 训练 MacBERT
-
-```powershell
-& .\.venv\Scripts\python.exe train_macbert.py --help
+# 使用 MacBERT 时训练
 & .\.venv\Scripts\python.exe train_macbert.py
 ```
 
-脚本默认从 Hugging Face 加载基础模型，也可用 `--base-model` 指定本地权重目录。脚本以 CPU 训练 54 条虚构样例，再用 36 条虚构样例评测。训练完毕后重启应用。若要重新训练，可以用 `--output .runtime/macbert-next` 保存新的检查点，再将 `.env` 中的 `MACBERT_MODEL_DIR` 指向该目录。
-
-## Demo 与生产项目的技术差异
-
-| 环节 | Demo |
-| --- | --- |
-| ERP / MySQL / PostgreSQL | 虚构 CSV SKU 库与 JSON 配置。问答和报价共用只读价格与库存数据，批量报价审核后导出 Excel。 |
-| Redis / 工作流状态 | LangGraph 进程内 Checkpointer 与 Streamlit Session State。报价待审核流程在服务重启后需要重新发起，业务对话历史存于本地 SQLite。 |
-| Milvus / 知识库 | 统一知识库使用本地 Chroma 存向量，配合 Python BM25 和文档 Hash 更新。 |
-| 分类部署 | CPU 本地批量推理，使用独立脚本训练，固定表配置 ERP 类目映射。 |
-| 服务入口 | 一个 Streamlit 进程，提供业务助手和商品分类两个入口。 |
-
-报价、RAG 和分类的示例数据位于 `data/`。会话历史、上传文档、索引和本地权重留在各自的 `.runtime/` 目录，由运行环境生成。
-
-## 自动测试
+配置完成后，在项目目录运行以下命令。
 
 ```powershell
-& .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+& .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1
 ```
-
-Windows Python 3.11 下通过自动测试。实机验证覆盖报价人工审核和 Excel 导出、PDF/Word/TXT 解析、BGE 与 BM25 混合检索、Chroma 增量更新、DeepSeek 原文引用、分类人工复核与 ERP 导出，以及基于官方 MacBERT 的 CPU 训练、评测和 18 类概率推理。
-
-BGE-M3 和 BGE-Reranker 的配置路径已提供，本次未下载并运行这两组可选权重。
