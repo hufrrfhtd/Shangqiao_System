@@ -4,7 +4,7 @@
 
 ## 快速开始
 
-1. [下载 Windows x64 便携版](https://github.com/hufrrfhtd/ai-interview-demo/releases/latest/download/AI-Interview-Demo-windows-x64.zip)。
+1. [下载 Windows x64 便携版](https://github.com/hufrrfhtd/Shangqiao_System/releases/latest/download/AI-Interview-Demo-windows-x64.zip)。
 2. 将 ZIP 完整解压到有写入权限的目录。
 3. 双击 `Run-Demo.cmd`，在浏览器中打开工作台。若浏览器没有自动打开，可访问终端显示的本地地址。
 
