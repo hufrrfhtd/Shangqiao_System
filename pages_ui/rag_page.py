@@ -8,6 +8,7 @@ import streamlit as st
 import chat_history
 from business_assistant import AssistantReply, ask
 from llm import deepseek_enabled
+from orchestrator import route_request
 from rag_engine import (
     Answer,
     Chunk,
@@ -249,12 +250,21 @@ def render() -> None:
     if question:
         thread_id = thread.id if thread else uuid4().hex
         context = thread.context if thread else {}
+        route = route_request(question, context=context)
+        if route == "quote":
+            st.session_state.update(business_view="quote", quote_prefill=question)
+            st.rerun()
         with messages:
             with st.chat_message("user"):
                 st.text(question)
             with st.chat_message("assistant", avatar=":material/support_agent:"):
                 with st.spinner("正在查询业务资料"):
-                    reply = ask(question, context, use_dense=use_dense, rerank=rerank)
+                    if route == "qa":
+                        reply = ask(question, context, use_dense=use_dense, rerank=rerank)
+                    else:
+                        reply = AssistantReply(knowledge=Answer(
+                            "请求未识别", "请输入带型号的商品清单，或询问价格、库存、耗材选型及售后。"
+                        ))
                 try:
                     chat_history.append_turn(thread_id, question, reply, context)
                 except HistoryError:

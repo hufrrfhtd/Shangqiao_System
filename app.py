@@ -45,7 +45,7 @@ def _business_home() -> None:
         with quote, st.container(border=True, key="entry_quote", height="stretch"):
             st.markdown(":material/request_quote:")
             st.subheader("询价报价", anchor=False)
-            st.write("上传 Excel 或 CSV 询价单，匹配货号，审核并导出报价。")
+            st.write("上传 Excel、CSV 或直接输入询价，审核后导出报价草稿。")
             st.button(
                 "进入询价", key="open_quote", type="primary", icon=":material/arrow_forward:",
                 width="stretch", on_click=st.session_state.update, kwargs={"business_view": "quote"},
@@ -96,7 +96,7 @@ else:
         )
         st.html(
             '<header class="business-quote-title"><h1>询价报价</h1>'
-            '<p>核对 SKU、库存和数量，审核后生成报价 Excel。</p></header>'
+            '<p>对照两路抽取和 ERP 核验结果，审核后生成报价草稿。</p></header>'
         )
         render()
     else:

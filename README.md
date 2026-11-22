@@ -1,138 +1,160 @@
-# 耗材工作台
+# 耗材工作台 · 询价报价智能 Agent
 
-耗材工作台是面向打印机耗材的本地业务系统，提供批量询价报价、耗材选型与售后问答、商品分类。系统内置示例商品、询价单和技术文档，价格与库存来自本地模拟 ERP。
+面向打印耗材 B2B 分销的本地 Demo。销售可以上传 Excel / CSV 或粘贴文本，核对规则与模型的抽取结果、候选 SKU、价格和库存，经人工审核生成 Excel 报价草稿。业务对话可以查询耗材选型、兼容关系、价格、库存和售后。原有的商品智能分类、人工复核和 ERP 标准 Excel 导出也可继续使用。
 
-## 快速开始
+## 快速启动
 
-1. [下载 Windows x64 便携版](https://github.com/hufrrfhtd/Shangqiao_System/releases/latest/download/AI-Interview-Demo-windows-x64.zip)。
-2. 将 ZIP 完整解压到有写入权限的目录。
-3. 双击 `Run-Demo.cmd`，在浏览器中打开工作台。若浏览器没有自动打开，可访问终端显示的本地地址。
-
-便携版内置 Python 和运行依赖，解压后即可离线使用。按 `Ctrl+C` 可停止本地服务。
-
-## 功能与用法
-
-### 询价报价
-
-1. 在「业务助手」点击「进入询价」，上传 `.xlsx` 或 `.csv`，或直接使用内置的示例询价单。表格应包含商品描述或型号、数量，可补充品牌与兼容要求。
-2. 点击「开始询价分析」。系统匹配 SKU，查询商品单价和库存，并标出需要人工核对的记录。
-3. 有待审核记录时，在「人工审核」中逐行选择「确认报价」或「跳过」。确认的记录需要核对 SKU 和数量，同一 SKU 的合计数量会参与库存校验。审核完毕后点击「确认并生成报价」。
-4. 报价生成后，点击「下载报价 Excel」。
-
-### 业务对话
-
-在「业务助手」点击「开始对话」，在右侧底部输入问题。左侧可新建对话、搜索历史会话，或打开旧会话继续提问。
-
-| 可查询的内容 | 示例问题 |
-| --- | --- |
-| 耗材选型 | HP M404 可以用哪些硒鼓？ |
-| 价格与库存 | CF258A 的价格和库存是多少？ |
-| 故障排查与售后政策 | HP M404 卡纸怎么处理？如何申请退货？ |
-
-选型与售后问题使用同一知识库。询问价格或库存时，系统会按需查询只读 ERP。回复下方可展开「查看检索排名与原文」。对话记录保存在本机的 `.runtime/chat_history.sqlite3`。
-
-需要添加资料时，打开「检索设置」中的「管理知识库」，选择文档类型，上传可提取文字的 PDF、DOCX 或 TXT，再点击「更新知识库」。
-
-### 商品智能分类
-
-1. 在左侧选择「商品智能分类」，上传 `.xlsx` 或使用内置示例。标准列为「商品名称」「品牌」「商品规格」「供应商原始型号」。
-2. 点击「清洗并分类」，查看预测类目、置信度和对应的 ERP 编码。
-3. 在「人工复核」中确认或修正待复核商品的类目，补齐缺失的商品名称，再点击「下载 ERP 标准 Excel」。
-
-如需评估分类效果，可在「标注数据评测」中使用内置测试集，或上传含「标注二级类目」列的测试表。
-
-## 系统结构
-
-工作台提供询价报价、业务对话和商品分类三条流程。报价和对话共用只读商品目录，售后问答和耗材选型共用一个知识库。报价审核与分类复核完成后分别导出 Excel。
-
-```mermaid
-flowchart LR
-    UI["Streamlit 工作台"] --> Quote["询价报价"]
-    UI --> Chat["业务对话"]
-    UI --> Classify["商品分类"]
-    Quote --> Graph["LangGraph 抽取、校验与审核"]
-    Graph --> Catalog["只读 SKU、价格与库存目录"]
-    Graph --> QuoteFile["报价 Excel"]
-    Chat --> Knowledge["共享知识库与原文引用"]
-    Chat -->|按需查价或库存| Catalog
-    Chat --> History["SQLite 会话历史"]
-    Classify --> Model["规则基线或 MacBERT"]
-    Model --> Review["人工复核与类目映射"]
-    Review --> ProductFile["ERP 标准 Excel"]
-```
-
-## 核心技术
-
-### 询价报价 Agent
-
-| 环节 | 处理方式 |
-| --- | --- |
-| 表格解析 | 使用 Pandas 和 openpyxl 读取 Excel，也支持 CSV。规范化列名和全角字符，保留原始行号，便于从匹配结果回查询价单。 |
-| 双路抽取 | LangGraph 并行运行规则抽取与 DeepSeek 抽取。规则识别型号、别名、品牌、类目和数量，支持「十二盒」等写法。启用 DeepSeek 时，模型以 JSON 返回抽取字段，Pydantic 校验结构、类型和数量范围。 |
-| 交叉校验 | 两个分支结束后，`merge_check` 按原始行号汇总，核对标准化型号、数量和类目。结果缺失、冲突或存在歧义时，标记对应询价行待确认。模型未启用或请求失败时，流程继续使用规则结果并转人工审核。 |
-| SKU 与库存核对 | 优先匹配精确型号，再查型号别名或打印机兼容关系。匹配时结合品牌、类目及原装或兼容要求。系统按 SKU 汇总需求数量，审核提交时重新校验库存。价格和库存取自 [模拟 ERP 商品目录](data/sku.csv)。 |
-| 人工审核与计价 | 待确认记录通过 LangGraph 的 `interrupt()` 暂停。销售确认或跳过后，`Command(resume=...)` 使用同一个 `thread_id` 恢复流程。单行金额用 `Decimal` 计算单价乘以数量，再汇总金额并导出报价明细、审核记录和报价汇总。 |
-
-例如，询价单中的「88A」可以通过别名匹配到标准耗材型号。若多行匹配到同一个 SKU，系统会汇总这些行的需求数量，再与可用库存核对。页面上的「流程详情与两路抽取结果」可查看规则结果、模型结果和匹配过程。 [报价工作流源码](quote_agent.py)
-
-### 业务对话与 RAG
-
-1. **识别请求并补齐信息**。规范化后命中 FAQ 或别名时，直接返回标准答案。故障排查缺少设备型号或故障现象时，助手先追问，再带着补齐的信息检索。例如先输入「卡纸了怎么办？」，再补充「HP M404」。涉及价格或库存时，业务规则会调用只读 ERP 查询，同一条回复可以同时显示维修依据和库存。 [业务路由源码](business_assistant.py)
-2. **解析文档并保留出处**。解析 PDF、DOCX 和 TXT，按章节组织文本，再用 LangChain 递归切片。片段保留文档名、章节、适用机型、文档类型和片段 ID，PDF 还保留页码。售后手册、政策和产品兼容资料进入同一语料库，检索按问题类型和机型等条件筛选候选片段。 [文档解析源码](rag_engine.py)
-3. **混合召回与排序**。BM25 用于匹配设备型号、耗材别名和故障关键词。配置 BGE 后，Chroma 用余弦相似度召回语义相近的片段。两路通过 RRF（倒数排名融合）合并排序，对每路命中的排名累加 `1 / (60 + rank)`。配置 BGE-Reranker 后，可对合并后的候选再精排。页面可展开查看排名、得分和原文。 [检索与排序源码](rag_engine.py)
-4. **引用校验和证据不足处理**。启用 DeepSeek 时，模型从检索结果中挑选能回答问题的原文，代码校验引用编号与所引内容是否吻合。证据不足时提示联系售后核实。离线或 API 请求失败时，页面可以展示本地检索到的原文。 [引用校验源码](rag_engine.py)
-5. **更新资料与恢复会话**。同类型的同名文件按 SHA-256 比较内容，变化时替换文件，Chroma 按片段 ID 补写缺失向量并清理过期记录。SQLite 保存提问、回复、引用、ERP 查询结果和追问上下文，左侧可按标题或消息内容搜索旧会话。历史中的库存和价格是当次查询记录，重新发送问题可获取目录中的当前值。 [会话持久化源码](chat_history.py)
-
-### 商品智能分类
-
-| 环节 | 处理方式 |
-| --- | --- |
-| 数据清洗 | 使用 Pandas 处理缺失值和重复商品，统一名称、品牌别名和规格字段。保留原始行号及供应商型号，便于人工复核和回查。 |
-| 分类体系 | 固定维护 4 个一级类目和 18 个二级类目。预测或复核确认二级类目后，由配置查得一级类目和 ERP 编码。例如「黑色硒鼓」映射到「打印耗材」和 `SUP-103`。 [类目配置](data/categories.json) |
-| 规则与模型推理 | 便携版按商品名称和规格中的关键词进行分类，以启发式得分辅助复核。可选的 MacBERT 模式用商品名称、品牌和规格组成输入，经 Transformers 和 PyTorch 在 CPU 上推理，输出 18 个二级类目的 Softmax 概率。 [分类源码](classifier.py) |
-| 人工复核与导出 | 低于阈值、未判定或商品名称缺失的记录进入复核表。确认类目和补齐名称后重新映射 ERP 编码，Excel 包含标准数据和复核记录。 [分类页面源码](pages_ui/classification_page.py) |
-| 离线训练与评测 | 内置训练集 54 条、独立测试集 36 条，均为虚构商品。训练脚本检查训练集与测试集是否含有相同输入文本。评测计算 Accuracy、Macro-F1 和混淆矩阵，结果用于验证该样例上的训练与评测流程。 [训练脚本](train_macbert.py) |
-
-## 组件选型与运行边界
-
-本仓库采用适合单机运行的组件。下表列出这些组件承担的职责，以及服务化项目中对应的技术环节。
-
-| 环节 | 本仓库实现 | 服务化项目中的对应职责 |
-| --- | --- | --- |
-| 应用入口 | Streamlit 提供上传、对话、审核和导出页面 | FastAPI 对外提供问答、文档管理、分类预测和审核接口 |
-| 知识检索 | 本地 BM25，可选 BGE 向量、Chroma 与 BGE-Reranker | BGE-M3 生成向量，Milvus 保存和检索向量，Reranker 对候选精排 |
-| 业务数据与状态 | 本地 CSV 提供价格和库存，进程内检查点保存待审核报价，SQLite 保存会话 | ERP 提供权威商品数据，PostgreSQL 可存储工作流状态，MySQL 可记录文档版本与分类修正，Redis 可承担版本化缓存 |
-| 质量评测 | 自动化测试覆盖询价审核、检索、引用和分类导出，分类页面计算标注测试集指标 | RAGAS 与人工审核可评估检索和回答质量，业务标注集可评估抽取、匹配及分类效果 |
-
-便携版自带 BM25 检索、FAQ、模拟 ERP 查询、报价审核和规则分类。DeepSeek、BGE、MacBERT 通过源码环境启用。报价检查点随应用进程保存，服务重启后需重新发起待审核批次。已保存的业务对话可以从历史列表恢复。
-
-## 从源码运行与开启可选功能
-
-下载源码后也可以双击 `Run-Demo.cmd`。首次启动会联网准备 Python 和运行依赖。此方式和便携版均默认使用本地 BM25 检索与规则分类。
-
-需要启用 DeepSeek、BGE 或 MacBERT 时，先安装 uv，再在源码目录创建运行环境并按本节末尾的命令启动。 [uv 安装说明](https://docs.astral.sh/uv/getting-started/installation/)
+需要 Python 3.11。在项目目录运行以下命令。Windows 也可以双击 `Run-Demo.cmd`，源码首次启动会联网安装依赖。
 
 ```powershell
-uv venv --python 3.11 .venv
-uv pip install --python .venv/Scripts/python.exe -r requirements.txt
+py -3.11 -m venv .venv
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 if (-not (Test-Path '.env')) { Copy-Item '.env.example' '.env' }
+& .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1
 ```
 
-- **DeepSeek** 支持询价信息抽取和带引用的问答。在 `.env` 填写 `DEEPSEEK_API_KEY`。启用后，查询或抽取所需的内容会发送到配置的 API。
-- **BGE** 支持向量检索和重排序。默认向量模型为 `BAAI/bge-small-zh-v1.5`，可由 `BGE_MODEL` 切换到 `BAAI/bge-m3` 或已有的本地权重目录。安装下方模型依赖后，首次联网下载权重时在 `.env` 设置 `RAG_ALLOW_MODEL_DOWNLOAD=1`。可选的精排模型通过 `BGE_RERANKER_MODEL` 设置。
-- **MacBERT** 支持查看 18 个二级类目的模型概率。安装模型依赖后运行 `train_macbert.py` 生成分类权重。首次训练会下载基础模型，也可用 `--base-model` 指定本地模型目录。
+使用 uv 时可执行 `uv venv --python 3.11 .venv` 和 `uv pip install --python .venv/Scripts/python.exe -r requirements.txt`。浏览器打开 [Streamlit 工作台](http://127.0.0.1:8501)。
+
+FastAPI 提供同一业务服务的 HTTP 入口。界面可独立启动。需要调试 API 时，在另一个终端执行以下命令。
 
 ```powershell
-# 使用 BGE 或 MacBERT 时安装
+& .\.venv\Scripts\python.exe -m uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+打开 [FastAPI 接口文档](http://127.0.0.1:8000/docs)。`POST /assist` 接收文本并返回意图和处理结果，`POST /quotes/upload` 接收文件，`GET /quotes/{inquiry_id}` 恢复查看任务，`POST /quotes/{inquiry_id}/review` 接收当前 `interrupt_id` 与审核决定，`GET /quotes/{inquiry_id}/workbook` 下载 Excel。问答中的追问上下文可通过 `context` 字段往返。
+
+### 配置与数据
+
+| 环境变量或文件 | 用途 |
+| --- | --- |
+| `DEEPSEEK_ENABLED`、`DEEPSEEK_API_KEY` | 设为启用并填写 Key 后可选择真实 DeepSeek 模式。设为 `0` 可强制离线。 |
+| `DEEPSEEK_MODEL`、`DEEPSEEK_BASE_URL` | 复用现有 DeepSeek 模型名与 API 地址，按账号可用配置填写。启用真实抽取后会把询价行发送给 API。 |
+| `QUOTE_DB_PATH` | 默认 `.runtime/quote_checkpoints.sqlite3`。首次使用会自动建表，两入口使用同一路径即可共享报价状态。 |
+| `data/sku.csv` | 本地只读模拟 ERP，包含既有示例耗材和新增的 A001–A006。 |
+| `data/quotation_demo.xlsx` | 页面默认示例，包含重复 SKU 需求、多候选、错写型号、库存不足、原文未覆盖及 Mock 数量冲突。 |
+| `data/selection/`、`data/after_sales/` | 本地知识库随项目提供。可在「检索设置」上传 PDF、DOCX 或 TXT。 |
+| `BGE_MODEL`、`BGE_RERANKER_MODEL`、`RAG_ALLOW_MODEL_DOWNLOAD` | 可选向量与重排配置，参考 `.env.example`。默认流程可以用本地 BM25。 |
+| `MACBERT_MODEL_DIR` | 可选的商品分类模型目录。 |
+
+报价 checkpoint 和原有对话历史 `.runtime/chat_history.sqlite3` 分别保存。旧版报价检查点存在内存中，新版本部署后需重新发起其中未完成的任务。当前应用和 API 面向单机演示，使用任务 ID 恢复本机记录。处理真实客户数据时需另配身份鉴别、数据访问控制和保留策略。
+
+需要运行 BGE、Chroma、BGE-Reranker 或训练 MacBERT 时，再安装模型依赖。首次联网获取权重时可以设置 `RAG_ALLOW_MODEL_DOWNLOAD=1`。
+
+```powershell
 uv pip install --python .venv/Scripts/python.exe --index-url https://download.pytorch.org/whl/cpu "torch>=2.6,<3"
 uv pip install --python .venv/Scripts/python.exe -r requirements-models.txt
-
-# 使用 MacBERT 时训练
+# 使用 MacBERT 时可训练样例权重
 & .\.venv\Scripts\python.exe train_macbert.py
 ```
 
-配置完成后，在项目目录运行以下命令。
+## 分层架构
+
+```mermaid
+flowchart LR
+    Web["Streamlit 工作台"] --> Router["Orchestrator · quote / qa / other"]
+    HTTP["FastAPI"] --> Router
+    Web --> Classify["既有商品分类与人工复核"]
+    Router --> Quote["报价 Agent · LangGraph"]
+    Router --> QA["产品问答 Agent · 意图选择"]
+    Quote --> ERP["共享 ERP 查询工具"]
+    QA --> ERP
+    QA --> RAG["共享 RAG · BM25 / 可选 BGE + Chroma / 重排"]
+    ERP --> CSV["只读 SKU · 型号、别名、兼容关系、价格、库存"]
+    RAG --> Docs["选型文档、维修手册、售后政策"]
+    Quote --> Checkpoint["SQLite Checkpointer"]
+    Quote --> Excel["Excel 报价草稿"]
+    QA --> History["Streamlit 对话历史 · SQLite"]
+```
+
+上传文件直接进入报价。自然语言根据询价清单、报价动作和已有问答上下文路由。查单价或库存属于问答，带数量的正式报价请求优先走报价。问答中的知识与价格可以同时使用 RAG 和 ERP。
+
+## 报价 LangGraph
+
+```mermaid
+flowchart TD
+    Start([START]) --> Load["load_file · 读取一次，保留行号与原文"]
+    Load --> Rule["extract_rule · Python 规则"]
+    Load --> Model["extract_llm · DeepSeek / Mock / 规则降级"]
+    Rule --> Merge["merge_check · 等待两路、按原文商品位置对齐"]
+    Model --> Merge
+    Merge --> ERP["erp_match · 精确、别名、兼容、模糊候选"]
+    ERP --> Validate["validate · SKU、单位、数量、汇总库存"]
+    Validate --> Review["human_review · interrupt(payload)"]
+    Review -->|同一 thread_id 收到 Command resume| Revalidate["revalidate · 复查 SKU、实时读取当前模拟价格和库存"]
+    Revalidate -->|审核需修正| Review
+    Revalidate -->|审核通过| Build["build_quote · Decimal 计价、保留审计与暂缓"]
+    Build --> End([END])
+```
+
+| 代码入口 | 负责的工作 |
+| --- | --- |
+| `QuoteState` / `load_file` | 保存任务 ID、文件名、原始行和各节点结果。Pandas 读取第一张 Excel 工作表或 CSV。文本按行保留来源。 |
+| `extract_rule` | 用已知型号、别名、列映射、正则和中文数字转换抽取型号、数量、单位与原装/兼容要求。 |
+| `extract_llm` | 使用 Pydantic 约束 JSON 响应，保留缺失值与来源位置。真实调用有限重试，失败行转人工核对。未配置服务时可用标记为 Mock 的本地演示分支。 |
+| `merge_check` | 用行号、规整型号、原文跨度和出现顺序对齐。保留两路候选、冲突、漏项和原文覆盖异常。结果一致时进入待 ERP 核验状态。 |
+| `erp_match` / `validate` | 区分查无型号、仅模糊候选和目录查询失败。精确匹配可能有多个 SKU，规则按品牌、品类与原装/兼容条件收窄。库存按 SKU 汇总。 |
+| `human_review` / `revalidate` | 销售可以确认、修订或暂缓。提交后按同一任务恢复工作流，从最新目录重新核验数量、单位、SKU 和价格。错误返回审核页。 |
+| `build_quote` | 读取复核后的价格快照，使用 `Decimal` 计算小计和合计，保留来源型号与所选 SKU 的对应关系。预览和导出包含暂缓条目及审核记录。 |
+
+`items_rule` 与 `items_llm` 由并行分支分别写入。人工审核节点中断前只准备 payload。服务使用同一个询价 ID 作为 `thread_id`，在任务锁内检查中断 ID 和完成状态，重复提交返回已有草稿。草稿 ID 由任务 ID 确定。报价仅供销售确认和导出，ERP 模拟目录全程只读。 [工作流](quote_agent.py) · [抽取与交叉验证](quote_extraction.py) · [恢复与导出](quote_service.py)
+
+### 人工审核与技术执行详情
+
+「查看全部」可以检查绿色预填项。「只看异常」聚焦黄色待复核与红色未识别或无法核验的条目。销售可确认 SKU、数量、单位和原装/兼容条件。修改或暂缓时填写原因。审核记录保留修改前后、条目编号、原始行号、处理状态和时间。缺少单位时，独立匹配到 SKU 的条目可预填 ERP 件数单位，销售可修正。当前样例目录按件计库存，未提供包装换算。
+
+关闭页面后，在询价页用任务 ID 恢复已保存的审核状态。未提交的表格编辑保存在当前页面会话，恢复任务时以检查点中的结果为准。页面中的「技术执行详情」展示节点、抽取差异、状态、ERP 工具参数和结果、HITL 暂停与恢复和节点耗时。客户原文在业务审核表中查看，调试视图对客户字段进行脱敏。
+
+## 问答与真实性
+
+| 环节 | 运行方式 |
+| --- | --- |
+| 真实 LLM | 启用并选用 DeepSeek 时发出真实 API 调用。抽取响应进行结构和来源验证；知识回答引用经校验的片段。 |
+| Mock LLM | 本地演示分支。示例行 `CN303 五个（演示数量冲突）` 可稳定重现规则 5 与 Mock 50 的冲突。 |
+| 规则降级 | 真实调用失败后，对受影响商品保留规则结果和待核对提示。API 也支持显式选择 `rules`。 |
+| 模拟 ERP | 报价与问答查询同一份本地 SKU 目录。价格、库存及兼容关系均为演示数据，真实 ERP 接入留作扩展。 |
+| 本地知识检索 | 对实际文档切片执行 BM25 检索，保留文档名、章节及原文引用。FAQ 命中时使用独立的固定答案路径。 |
+| 可选向量与重排 | 配置 BGE 模型后可使用 Chroma 向量召回，与 BM25 结果通过 RRF 融合。配置 BGE-Reranker 后可选精排。当前未部署 Milvus。 |
+
+示例可问「HX-259A 原装多少钱？还有多少库存？」「HX-259A 适用于什么打印机？」「HX-259A 和 HX-259X 有什么区别？分别多少钱？」。问答按型号过滤相关资料，混合问题同时返回货号、价格、库存和所引用的证据。证据不足时提示核实。 [问答调度](business_assistant.py) · [ERP 工具](erp_tools.py) · [知识检索](rag_engine.py)
+
+### 商品智能分类
+
+在左侧选择「商品智能分类」，上传 Excel 或使用内置示例。标准列为「商品名称」「品牌」「商品规格」「供应商原始型号」。点击「清洗并分类」查看预测类目、置信度和 ERP 编码。在「人工复核」确认或修正待复核商品并补齐名称，再点击「下载 ERP 标准 Excel」。
+
+工作台维护 4 个一级类目、18 个二级类目，默认使用规则基线，可启用本地 MacBERT。「标注数据评测」支持内置测试集或包含「标注二级类目」列的表格，计算 Accuracy、Macro-F1 和混淆矩阵。 [分类页面](pages_ui/classification_page.py) · [类目配置](data/categories.json)
+
+## 3–5 分钟面试演示
+
+1. 在业务助手进入询价，下载并上传页面提供的样例，或直接启动默认示例。选择 Mock LLM 后点击「开始询价分析」。约 40 秒。
+2. 展开「技术执行详情」。说明同一份原始行分给两个 LangGraph 分支。检查 CN303 的 5 对 50、同一单元格中的两个商品和两路未覆盖的原文。约 50 秒。
+3. 打开「只看异常」。按原文确认 CN303 数量 5，选择 A003。LK-2441 改为 50 支。PX-428 选择 A001 标准容量，保留 20 个。HX-295A 和无型号的原文暂缓并填备注。若需要展示持久化，复制任务 ID 后在新页恢复再提交。约 90 秒。
+4. 提交后检查 A001 的 10 + 20 按库存 30 校验。预览合计 ¥32,130.00 的草稿，并下载 Excel 查看「暂缓条目」与「审核记录」。约 35 秒。
+5. 返回业务助手，先问「HX-259A 原装多少钱？还有多少库存？」，再问「HX-259A 和 HX-259X 有什么区别？分别多少钱？」。查看实际查询到的模拟 ERP 行和知识来源。约 45 秒。
+
+## 修改文件
+
+| 文件 | 修改内容 |
+| --- | --- |
+| `quote_agent.py`、`quote_extraction.py` | 扩展 LangGraph 状态图，补齐文件和文本解析、并行抽取、按商品对齐及复核闭环。 |
+| `quote_service.py`、`api.py` | 新增 SQLite 检查点、任务恢复、提交幂等、Excel 导出和 FastAPI 入口。 |
+| `erp_tools.py`、`orchestrator.py`、`business_assistant.py`、`rag_engine.py` | 复用并提取 ERP 工具，增加候选匹配、统一入口路由和型号过滤后的问答。 |
+| `chat_history.py` | 调整商品数据类的导入，继续读取既有 SQLite 对话记录。 |
+| `app.py`、`pages_ui/quote_page.py`、`pages_ui/rag_page.py` | 保留 Streamlit 入口，补齐文本报价、审核对照、技术面板和对话到报价的转交。 |
+| `data/quotation_demo.xlsx`、`data/sku.csv`、`data/selection/演示耗材选型指南.txt` | 增加可重复的询价数据、模拟 SKU 和选型知识依据。 |
+| `.env.example`、`requirements.txt`、`scripts/build_portable.py`、`scripts/requirements-portable-win-x64.txt` | 增加检查点配置、依赖及便携版打包文件。 |
+| `tests/test_quote_extraction.py`、`tests/test_quote_service.py`、`tests/test_quote_page.py`、`tests/test_erp_qa_routes.py` | 通过处理函数、图状态、接口及 Streamlit 页面验证演示场景。 |
+| `README.md` | 记录运行命令、架构与工作流、面试步骤和实测边界。 |
+
+## 验证与限制
 
 ```powershell
-& .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1
+$env:DEEPSEEK_ENABLED = '0'
+uv pip install --python .venv/Scripts/python.exe pytest
+& .\.venv\Scripts\python.exe -m pytest -q
 ```
+
+- 全量自动化测试通过 37 项及 16 项子测试。覆盖原有分类、问答、会话恢复，以及报价双路抽取、ERP 匹配、审核阻断与修复、SQLite 重开、并发重复提交、Excel 导出和 API 路由。模型错误与超时由可控接口替身触发。
+- 实际启动 Streamlit 和 FastAPI，健康检查均返回 HTTP 200。示例 Excel 端到端生成 ¥32,130.00 报价草稿，保留 2 个暂缓条目。
+- 使用已配置的 DeepSeek API 对一条合成询价执行真实抽取，得到同一行的两条商品。用本地 BM25 和模拟 ERP 验证混合问答的出处与 SKU。本次验证使用有限样例。
+
+当前演示支持首张表、最多 200 条来源行，支持明确的数量，区间、约数、包装换算和没有依据的型号需人工核对。报价与知识咨询混合的复杂请求采用报价优先，可拆成两次提交。价格来自目录，客户协议价、阶梯价、真实 ERP、Milvus 和生产级任务隔离留作扩展。

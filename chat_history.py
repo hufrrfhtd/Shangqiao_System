@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal
 
 from business_assistant import AssistantReply
-from quote_agent import CatalogItem
+from erp_tools import CatalogItem
 from rag_engine import Answer, Chunk, Hit
 from settings import RUNTIME_DIR
 

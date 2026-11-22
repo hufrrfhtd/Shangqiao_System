@@ -29,15 +29,17 @@ STREAMLIT_LICENSE_SHA256 = "c95bae1d1ce0235ecccd3560b772ec1efb97f348a79f0fbe0a63
 
 PROJECT_FILES = (
     "Run-Demo.cmd", "README.md", ".streamlit/config.toml", "app.py", "settings.py", "llm.py",
-    "business_assistant.py", "chat_history.py", "classifier.py", "common.py", "quote_agent.py", "rag_engine.py",
+    "api.py", "business_assistant.py", "chat_history.py", "classifier.py", "common.py",
+    "erp_tools.py", "orchestrator.py", "quote_agent.py", "quote_extraction.py", "quote_service.py", "rag_engine.py",
     "requirements.txt", "requirements-models.txt", "train_macbert.py", "start-demo.ps1",
     "pages_ui/__init__.py", "pages_ui/classification_page.py", "pages_ui/quote_page.py", "pages_ui/rag_page.py",
     "pages_ui/chat.css", "pages_ui/workspace.css", "pages_ui/assets/toner-workspace.webp",
     "data/categories.json", "data/faq.json", "data/products_demo.xlsx", "data/products_test.csv",
-    "data/products_train.csv", "data/quotation.xlsx", "data/quotation.csv", "data/sku.csv",
+    "data/products_train.csv", "data/quotation.xlsx", "data/quotation.csv", "data/quotation_demo.xlsx", "data/sku.csv",
     "data/after_sales/售后政策.txt", "data/after_sales/爱普生 L3158 排障手册.txt",
     "data/after_sales/佳能 LBP2900 排障手册.txt", "data/after_sales/惠普 M404 维修手册.txt",
     "data/selection/佳能和爱普生耗材兼容表.txt", "data/selection/惠普耗材兼容表.txt",
+    "data/selection/演示耗材选型指南.txt",
 )
 
 

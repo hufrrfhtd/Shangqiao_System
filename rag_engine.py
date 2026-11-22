@@ -29,7 +29,10 @@ QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
 MODEL_PATTERN = re.compile(
     r"(?<![A-Z0-9])(?:[A-Z]{1,6}-)?[A-Z][A-Z0-9]*-?\d{2,5}[A-Z0-9]*(?:-[A-Z]{1,4})?(?![A-Z0-9])"
 )
-CONSUMABLE_MODEL = re.compile(r"(?:C[CEF]|Q|W)\d{3,5}[A-Z]{1,3}|(?:CRG|TN|DR|PG|CL|LC|T00V|TON|INK|RIB|PAR)\d[A-Z0-9]*")
+CONSUMABLE_MODEL = re.compile(
+    r"(?:C[CEF]|Q|W)\d{3,5}[A-Z]{1,3}|(?:CRG|TN|DR|PG|CL|LC|T00V|TON|INK|RIB|PAR|HX|CN|LK)\d[A-Z0-9]*"
+)
+COMPATIBILITY_QUESTION = re.compile(r"兼容|适配|适用|能用|可用|可以用|支持")
 MODEL_LINE = re.compile(r"^\s*(?:适用)?(?:设备|打印机)型号\s*[:：]\s*(.+)$")
 HEADING = re.compile(
     r"^\s*(?:#{1,6}\s+|第[一二三四五六七八九十百\d]+[章节]\s*|"
@@ -443,12 +446,15 @@ def _eligible(chunk: Chunk, model: str) -> bool:
     return any(_device_matches(model, declared) for declared in supported)
 
 
-def _mentions_identifier(chunk: Chunk, identifiers: set[str]) -> bool:
+def _chunk_identifiers(chunk: Chunk, identifiers: set[str], *, require_relation: bool) -> set[str]:
     if not identifiers:
-        return True
-    return bool(identifiers.intersection(_models(chunk.text))) or any(
-        _device_matches(identifier, declared) for identifier in identifiers for declared in chunk.models
-    )
+        return set()
+    exact = identifiers.intersection(_models(chunk.text))
+    supported = _models(chunk.section) if require_relation else chunk.models
+    return exact | {
+        identifier for identifier in identifiers
+        if any(_device_matches(identifier, declared) for declared in supported)
+    }
 
 
 def is_policy_question(text: str) -> bool:
@@ -475,13 +481,22 @@ def retrieve(
         corpus, notices = _read_catalog()
         policy = library == "after_sales" and not model and is_policy_question(query)
         identifiers = set(_models(query)) if library != "after_sales" else set()
-        eligible = [
-            (index, chunk) for index, chunk in enumerate(corpus)
-            if (library is None or chunk.library == library)
-            and _eligible(chunk, model)
-            and (not policy or not chunk.models)
-            and _mentions_identifier(chunk, identifiers)
-        ]
+        # 兼容问题要求同一片段覆盖明确指定的型号，避免把两个单独命中拼成兼容关系。
+        requires_relation = len(identifiers) > 1 and bool(COMPATIBILITY_QUESTION.search(query))
+        covered = set()
+        eligible = []
+        for index, chunk in enumerate(corpus):
+            if (library is not None and chunk.library != library) or not _eligible(chunk, model):
+                continue
+            if policy and chunk.models:
+                continue
+            matches = _chunk_identifiers(chunk, identifiers, require_relation=requires_relation)
+            if identifiers and (not matches or (requires_relation and matches != identifiers)):
+                continue
+            eligible.append((index, chunk))
+            covered.update(matches)
+        if covered != identifiers:
+            return [], "", notices
         if not eligible or not words:
             return [], "", notices
         allowed = tuple(chunk for _, chunk in eligible)
